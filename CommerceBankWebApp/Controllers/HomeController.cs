@@ -1,6 +1,7 @@
 ﻿using CommerceBankWebApp.Areas.Identity.Data;
 using CommerceBankWebApp.Data;
 using CommerceBankWebApp.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -142,6 +143,7 @@ namespace CommerceBankWebApp.Controllers
             return RedirectToAction("ViewTransactions");
         }
 
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> PopulateDatabase()
         {
             List<BankAccount> accounts = await _context.BankAccounts.Include( ac => ac.Transactions).ToListAsync();
@@ -155,6 +157,7 @@ namespace CommerceBankWebApp.Controllers
             return View(model);
         }
 
+        [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<IActionResult> PopulateDatabase(PopulateDatabaseViewModel model)
         {
