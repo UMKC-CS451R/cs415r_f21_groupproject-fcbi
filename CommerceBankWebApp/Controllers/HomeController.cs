@@ -46,7 +46,7 @@ namespace CommerceBankWebApp.Controllers
             return View();
         }
 
-
+        // returns a list of all bank accounts associated with the current user
         public async Task<List<BankAccount>> ReadBankAccountsCurrentUser()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -54,15 +54,16 @@ namespace CommerceBankWebApp.Controllers
              return await _context.BankAccounts.Where(ac => ac.CommerceBankWebAppUserId == user.Id).Include(ac => ac.Transactions).ToListAsync();
         }
 
+        // returns a list of all bank accounts in the database
         public async Task<List<BankAccount>> ReadBankAccountsAllUsers()
         {
-            var user = await _userManager.GetUserAsync(User);
-
             return await _context.BankAccounts.Include(ac => ac.Transactions).ToListAsync();
         }
 
+        // View for viewing transactions
         public async Task<IActionResult> ViewTransactions()
         {
+            // if we are admin, get list of all bank accounts, otherwise just the accounts owned by the user
             List<BankAccount> bankAccounts;
 
             if (User.IsInRole("admin"))
@@ -73,6 +74,7 @@ namespace CommerceBankWebApp.Controllers
                 bankAccounts = await ReadBankAccountsCurrentUser();
             }
 
+            // create the page model for the view, and store the bank accounts in it
             ViewTransactionsViewModel model = new ViewTransactionsViewModel();
 
             model.BankAccounts = bankAccounts;
@@ -80,8 +82,11 @@ namespace CommerceBankWebApp.Controllers
             return View(model);
         }
 
+
+        // View for adding a transaction
         public async Task<IActionResult> AddTransaction()
         {
+            // if we are admin, get list of all bank accounts, otherwise just the accounts owned by the user
             List<BankAccount> bankAccounts;
 
             if (User.IsInRole("admin"))
@@ -93,12 +98,12 @@ namespace CommerceBankWebApp.Controllers
                 bankAccounts = await ReadBankAccountsCurrentUser();
             }
 
-
+            // create the page model for the view, and store the bank accounts in it
             AddTransactionViewModel model = new AddTransactionViewModel();
-
-            model.AccountSelectList = new List<SelectListItem>();
-
             model.BankAccounts = bankAccounts;
+
+            // the page has a drop down menu. Populate the list with names of accounts that the user can add the transaction to
+            model.AccountSelectList = new List<SelectListItem>();
 
             foreach (BankAccount account in model.BankAccounts)
             {
@@ -112,6 +117,7 @@ namespace CommerceBankWebApp.Controllers
             return View(model);
         }
 
+        // The add transaction page posts when a user tries to add an account
         [HttpPost]
         public async Task<IActionResult> AddTransaction(AddTransactionViewModel model)
         {
@@ -133,34 +139,38 @@ namespace CommerceBankWebApp.Controllers
                 Description = model.Input.Description
             };
 
+            // add the transaciton to the database
             _context.Transactions.Add(transaction);
 
+            // update the bank account balance
             if (transaction.IsCredit) bankAccount.Balance += transaction.Amount;
             else bankAccount.Balance -= transaction.Amount;
 
+            // update the bank account data in the db and save changes
             _context.BankAccounts.Attach(bankAccount);
-
             await _context.SaveChangesAsync();
 
-
-
+            // redirect to the view transactions page
             return RedirectToAction("ViewTransactions");
         }
 
+        // Only admins can view this page
+        // this view lets the user upload an excel file to populate transactions into the database
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> PopulateDatabase()
         {
-            List<BankAccount> accounts = await _context.BankAccounts.Include( ac => ac.Transactions).ToListAsync();
+            // read all bank accounts in the database
+            List<BankAccount> bankAccounts = await ReadBankAccountsAllUsers();
 
+            // create the view model and store the accounts in it
             PopulateDatabaseViewModel model = new PopulateDatabaseViewModel();
-
-            model.BankAccounts = accounts;
-
-            await _context.SaveChangesAsync();
+            model.BankAccounts = bankAccounts;
 
             return View(model);
         }
 
+        // The add transaction page posts when a user tries to add an account
+        // It posts when the user has uploaded a file
         [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<IActionResult> PopulateDatabase(PopulateDatabaseViewModel model)
