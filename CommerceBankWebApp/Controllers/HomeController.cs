@@ -54,9 +54,22 @@ namespace CommerceBankWebApp.Controllers
             BankAccounts = await _context.BankAccounts.Where(ac => ac.CommerceBankWebAppUserId == user.Id).Include(ac => ac.Transactions).ToListAsync();
         }
 
+        public async Task ReadBankAccountsAllUsers()
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            BankAccounts = await _context.BankAccounts.Include(ac => ac.Transactions).ToListAsync();
+        }
+
         public async Task<IActionResult> ViewTransactions()
         {
-            await ReadBankAccountsCurrentUser();
+            if (User.IsInRole("admin"))
+            {
+                await ReadBankAccountsAllUsers();
+            } else
+            {
+                await ReadBankAccountsCurrentUser();
+            }
 
             ViewTransactionsViewModel model = new ViewTransactionsViewModel();
 
@@ -67,7 +80,14 @@ namespace CommerceBankWebApp.Controllers
 
         public async Task<IActionResult> AddTransaction()
         {
-            await ReadBankAccountsCurrentUser();
+            if (User.IsInRole("admin"))
+            {
+                await ReadBankAccountsAllUsers();
+            }
+            else
+            {
+                await ReadBankAccountsCurrentUser();
+            }
 
             AddTransactionViewModel model = new AddTransactionViewModel();
 
@@ -90,12 +110,11 @@ namespace CommerceBankWebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> AddTransaction(AddTransactionViewModel model)
         {
-            await ReadBankAccountsCurrentUser();
-
             // if the data given isn't valid return to the page and display errors
             if (!ModelState.IsValid) return View(model);
 
-            var query = BankAccounts.Where(ac => ac.AccountNumber == model.Input.AccountNumber).ToList();
+            // TODO: Security flaw. If the user modifies post data, could inject data into other accounts
+            var query = _context.BankAccounts.Where(ac => ac.AccountNumber == model.Input.AccountNumber).ToList();
 
             BankAccount bankAccount = query.First();
 
@@ -139,17 +158,17 @@ namespace CommerceBankWebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> PopulateDatabase(PopulateDatabaseViewModel model)
         {
-            List<BankAccount> accounts = await _context.BankAccounts.Include(ac => ac.Transactions).ToListAsync();
+            await ReadBankAccountsAllUsers();
 
-            model.BankAccounts = accounts;
+            model.BankAccounts = BankAccounts;
 
             await model.ReadExcelData(model.Upload.OpenReadStream());
 
-            await _context.BankAccounts.AddRangeAsync(model.BankAccounts);
+            _context.BankAccounts.AttachRange(model.BankAccounts);
 
             await _context.SaveChangesAsync();
 
-            return View(model);
+            return RedirectToAction("ViewTransactions");
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
