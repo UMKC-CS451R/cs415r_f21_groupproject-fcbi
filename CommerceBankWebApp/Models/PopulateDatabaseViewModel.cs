@@ -10,6 +10,9 @@ namespace CommerceBankWebApp.Models
 {
     public class PopulateDatabaseViewModel
     {
+        // Should contain all bank accounts in the database. Data is passed from the controller
+        // This may have issues scalling on large databases with a lot of data, because its reading all of the data unecessarily
+        // I have a few solutions in mind, but this works for now
         public List<BankAccount> BankAccounts { get; set; }
 
 
@@ -17,7 +20,8 @@ namespace CommerceBankWebApp.Models
         // the file that the user uploads
         public IFormFile Upload { get; set; }
 
-        public async Task ReadExcelData(System.IO.Stream file)
+        // Will read data in an excel file and store all accounts in property BankAccounts
+        public void ReadExcelData(System.IO.Stream file)
         {
 
             // create a spread sheet light document using the file provided
@@ -116,6 +120,7 @@ namespace CommerceBankWebApp.Models
                                 Transactions = new List<Transaction>()
                             };
 
+                            // add this account to our list of accounts (it will be written to the db later by the mvc controller)
                             BankAccounts.Add(bankAccount);
 
                             // if no description was provided, use (initial starting balance) for the first transactiond description
@@ -123,7 +128,7 @@ namespace CommerceBankWebApp.Models
                         }
                         else
                         {
-                            // if there was a bank account with the account number already in the database, set bankAcount to that one
+                            // if there was a bank account with a matching account number, use that one. There will only ever be one because the account # is unique
                             bankAccount = query.First();
                         }
 
@@ -139,7 +144,7 @@ namespace CommerceBankWebApp.Models
                             if (String.IsNullOrEmpty(description)) description = "No description";
 
                             // create a new transaction using data
-                            // (some of this data may have been modified above if this was the first transaction under this acct#)
+                            // (some of this data may have been modified above if this was the first transaction under this acct #)
                             Transaction transaction = new Transaction()
                             {
                                 ProcessingDate = processingDate.Value,

@@ -17,8 +17,6 @@ namespace CommerceBankWebApp.Controllers
 {
     public class HomeController : Controller
     {
-        public List<BankAccount> BankAccounts { get; set; }
-
         private readonly ILogger<HomeController> _logger;
         private readonly ApplicationDbContext _context;
         private readonly UserManager<CommerceBankWebAppUser> _userManager;
@@ -48,53 +46,59 @@ namespace CommerceBankWebApp.Controllers
             return View();
         }
 
-        public async Task ReadBankAccountsCurrentUser()
+
+        public async Task<List<BankAccount>> ReadBankAccountsCurrentUser()
         {
             var user = await _userManager.GetUserAsync(User);
 
-            BankAccounts = await _context.BankAccounts.Where(ac => ac.CommerceBankWebAppUserId == user.Id).Include(ac => ac.Transactions).ToListAsync();
+             return await _context.BankAccounts.Where(ac => ac.CommerceBankWebAppUserId == user.Id).Include(ac => ac.Transactions).ToListAsync();
         }
 
-        public async Task ReadBankAccountsAllUsers()
+        public async Task<List<BankAccount>> ReadBankAccountsAllUsers()
         {
             var user = await _userManager.GetUserAsync(User);
 
-            BankAccounts = await _context.BankAccounts.Include(ac => ac.Transactions).ToListAsync();
+            return await _context.BankAccounts.Include(ac => ac.Transactions).ToListAsync();
         }
 
         public async Task<IActionResult> ViewTransactions()
         {
+            List<BankAccount> bankAccounts;
+
             if (User.IsInRole("admin"))
             {
-                await ReadBankAccountsAllUsers();
+                bankAccounts = await ReadBankAccountsAllUsers();
             } else
             {
-                await ReadBankAccountsCurrentUser();
+                bankAccounts = await ReadBankAccountsCurrentUser();
             }
 
             ViewTransactionsViewModel model = new ViewTransactionsViewModel();
 
-            model.BankAccounts = BankAccounts;
+            model.BankAccounts = bankAccounts;
 
             return View(model);
         }
 
         public async Task<IActionResult> AddTransaction()
         {
+            List<BankAccount> bankAccounts;
+
             if (User.IsInRole("admin"))
             {
-                await ReadBankAccountsAllUsers();
+                bankAccounts = await ReadBankAccountsAllUsers();
             }
             else
             {
-                await ReadBankAccountsCurrentUser();
+                bankAccounts = await ReadBankAccountsCurrentUser();
             }
+
 
             AddTransactionViewModel model = new AddTransactionViewModel();
 
             model.AccountSelectList = new List<SelectListItem>();
 
-            model.BankAccounts = BankAccounts;
+            model.BankAccounts = bankAccounts;
 
             foreach (BankAccount account in model.BankAccounts)
             {
@@ -161,11 +165,11 @@ namespace CommerceBankWebApp.Controllers
         [HttpPost]
         public async Task<IActionResult> PopulateDatabase(PopulateDatabaseViewModel model)
         {
-            await ReadBankAccountsAllUsers();
+            List<BankAccount> bankAccounts = await ReadBankAccountsAllUsers();
 
-            model.BankAccounts = BankAccounts;
+            model.BankAccounts = bankAccounts;
 
-            await model.ReadExcelData(model.Upload.OpenReadStream());
+            model.ReadExcelData(model.Upload.OpenReadStream());
 
             _context.BankAccounts.AttachRange(model.BankAccounts);
 
